@@ -15,11 +15,13 @@ export interface IKept {
    */
   get(id: number): Promise<TJSON | undefined>;
 
+  put(id: number, object: TJSON): Promise<void>;
+
   /**
    * Save an object to the store, returns the id assigned to the object
    * @param object
    */
-  put(object: TJSON): Promise<number>;
+  add(object: TJSON): Promise<number>;
 
   /**
    * Find all the objects in the store where the key is equal to the given value
@@ -68,15 +70,16 @@ export const Store = (filename: string): IKept => {
   const init = (): Promise<sqlite3.Database> => {
     if (db == null) {
       return new Promise((resolve, reject) => {
-        db = new sqlite3.Database(filename);
-        db.exec(
+        const local = new sqlite3.Database(filename);
+        db = local;
+        local.exec(
           `CREATE TABLE IF NOT EXISTS 
           objects (id INTEGER PRIMARY KEY, json TEXT);`,
           (err) => {
             if (err != null) {
               reject(err);
             } else {
-              resolve(db!);
+              resolve(local);
             }
           }
         );
@@ -179,8 +182,29 @@ export const Store = (filename: string): IKept => {
     return { id: row.id, ...JSON.parse(row.json) };
   };
 
-  const putRaw = (db: sqlite3.Database, value: TJSON): Promise<number> => {
-    return new Promise((resolve, reject) => {
+  const putRaw = (db: sqlite3.Database, id: number, value: TJSON) =>
+    new Promise<number>((resolve, reject) => {
+      db.run(
+        "REPLACE INTO objects (id, json) VALUES (?, ?)",
+        id,
+        JSON.stringify(value),
+        captureThis((_this: any, err: Error | undefined) => {
+          if (err != null) {
+            reject(err);
+          } else {
+            resolve(_this.lastID);
+          }
+        })
+      );
+    });
+
+  const put = async (id: number, object: TJSON): Promise<void> => {
+    const db = await init();
+    await putRaw(db, id, object);
+  };
+
+  const addRaw = (db: sqlite3.Database, value: TJSON) =>
+    new Promise<number>((resolve, reject) => {
       db.run(
         "INSERT INTO objects (json) VALUES (?)",
         JSON.stringify(value),
@@ -193,11 +217,10 @@ export const Store = (filename: string): IKept => {
         }
       );
     });
-  };
 
-  const put = async (object: TJSON): Promise<number> => {
+  const add = async (object: TJSON): Promise<number> => {
     const db = await init();
-    const id = await putRaw(db, object);
+    const id = await addRaw(db, object);
     return id;
   };
 
@@ -258,5 +281,13 @@ export const Store = (filename: string): IKept => {
       });
     });
 
-  return { get, put, findBy, findOneBy, delete: delete_, all, close };
+  return { get, add, put, findBy, findOneBy, delete: delete_, all, close };
 };
+
+function captureThis<T extends any[], TThis, R>(
+  f: (t: TThis, ...args: T) => R
+) {
+  return function (this: TThis, ...args: T) {
+    return f(this, ...args);
+  };
+}

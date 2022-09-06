@@ -45,12 +45,12 @@ const puppies: any[] = [
   },
 ];
 
-describe("putting objects into the store", () => {
+describe("adding objects into the store", () => {
   it("returns an id for each object", async () => {
-    const { put, close } = Store(":memory:");
+    const { add, close } = Store(":memory:");
     let idx = 0;
     for (const puppy of puppies) {
-      const id = await put(puppy);
+      const id = await add(puppy);
       expect(id).toBe(++idx);
     }
 
@@ -58,9 +58,21 @@ describe("putting objects into the store", () => {
   });
 });
 
+describe("putting objects back in to the store", () => {
+  it("returns an id for each object", async () => {
+    const { add, put, get, close } = Store(":memory:");
+    const id = await add({ fart: "poop" });
+    await put(id, { butts: "wees" });
+    const record = await get(id);
+    expect(record).toStrictEqual({ butts: "wees" });
+
+    await close();
+  });
+});
+
 describe("Getting objects out by Id", () => {
   it("gets the object back by the given Id", async () => {
-    const { put, get, close } = Store(":memory:");
+    const { add: put, get, close } = Store(":memory:");
     for (const puppy of puppies) {
       await put(puppy);
     }
@@ -73,7 +85,7 @@ describe("Getting objects out by Id", () => {
 
 describe("find one matching object", () => {
   it("gets the object back by given criteria", async () => {
-    const { put, findOneBy, close } = Store(":memory:");
+    const { add: put, findOneBy, close } = Store(":memory:");
     for (const puppy of puppies) {
       await put(puppy);
     }
@@ -89,7 +101,7 @@ describe("find one matching object", () => {
 
 describe("find all matching objects", () => {
   it(`gets all the objects matching the given criteria`, async () => {
-    const { put, findBy, close } = Store(":memory:");
+    const { add: put, findBy, close } = Store(":memory:");
     for (const puppy of puppies) {
       await put(puppy);
     }
