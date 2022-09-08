@@ -1,4 +1,5 @@
 import { Store } from "./index";
+import { stringEquals, like, not } from "./query";
 
 const puppies: any[] = [
   {
@@ -34,6 +35,7 @@ const puppies: any[] = [
   {
     name: "Bella",
     owner: "Brianna",
+    weight: 73,
     image: "/images/puppy6.jpg",
     breed: "Labrador",
   },
@@ -44,6 +46,50 @@ const puppies: any[] = [
     breed: "Labrador",
   },
 ];
+
+describe("fancy queries", () => {
+  it("gets all the right stuff", async () => {
+    const { add, query, close } = Store(":memory:");
+    for (const puppy of puppies) {
+      await add(puppy);
+    }
+
+    const results = await query((select) =>
+      select
+        .where(($, col) => $.eq(col.breed, $.str("Labrador")))
+        .where(($, col) => $.not($.like(col.owner, "Ric%")))
+        .orderBy("owner", "asc")
+        .paging(0, 3)
+    );
+
+    expect(results).toHaveLength(3);
+    expect((results[0] as any).owner).toBe("Brianna");
+
+    await close();
+  });
+});
+
+describe("fancy queries (with helpers)", () => {
+  it("gets all the right stuff", async () => {
+    const { add, query, close } = Store(":memory:");
+    for (const puppy of puppies) {
+      await add(puppy);
+    }
+
+    const results = await query((select) =>
+      select
+        .where(stringEquals("breed", "Labrador"))
+        .where(not(like("owner", "Ric%")))
+        .orderBy("owner", "asc")
+        .paging(0, 3)
+    );
+
+    expect(results).toHaveLength(3);
+    expect((results[0] as any).owner).toBe("Brianna");
+
+    await close();
+  });
+});
 
 describe("adding objects into the store", () => {
   it("returns an id for each object", async () => {

@@ -1,5 +1,16 @@
 import sqlite3 from "sqlite3";
 
+import { queryRaw, Builder } from "./query";
+
+export {
+  not,
+  like,
+  stringEquals,
+  numberEquals,
+  lessThan,
+  greaterThan,
+} from "./query";
+
 export type TJSON =
   | string
   | number
@@ -15,6 +26,12 @@ export interface IKept {
    */
   get(id: number): Promise<TJSON | undefined>;
 
+  /**
+   * Update the object stored with the given id or store a new object at that id
+   *
+   * @param id
+   * @param object
+   */
   put(id: number, object: TJSON): Promise<void>;
 
   /**
@@ -50,6 +67,13 @@ export interface IKept {
    * close the connection to the database
    */
   close(): Promise<void>;
+
+  /**
+   * Make a more complex query, including orderBy, multiple where clauses and paging
+   *
+   * @param build
+   */
+  query(build: (_: Builder) => Builder): Promise<TJSON[]>;
 }
 
 export interface IRow {
@@ -281,7 +305,22 @@ export const Store = (filename: string): IKept => {
       });
     });
 
-  return { get, add, put, findBy, findOneBy, delete: delete_, all, close };
+  const query = async (build: (_: Builder) => Builder) => {
+    const db = await init();
+    return queryRaw(db, build);
+  };
+
+  return {
+    get,
+    add,
+    put,
+    findBy,
+    findOneBy,
+    delete: delete_,
+    all,
+    close,
+    query,
+  };
 };
 
 function captureThis<T extends any[], TThis, R>(
