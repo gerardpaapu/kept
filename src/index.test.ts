@@ -91,6 +91,37 @@ describe("fancy queries (with helpers)", () => {
   });
 });
 
+describe("any item in an array", () => {
+  it("checks if the predicate matches any item", async () => {
+    const { add, query, close } = Store(":memory:");
+    await add({
+      name: "Chicken soup",
+      ingredients: ["Noodles", "Broth", "Chicken", "Vegetables"],
+    });
+
+    await add({
+      name: "Pea soup",
+      ingredients: ["Peas", "Salt"],
+    });
+
+    const result = await query((soup) =>
+      soup
+        .where(($, col) => $.not($.eq(col.author, $.str("Jamie Oliver"))))
+        .where(($, col) =>
+          $.any(col.ingredients, (ingredient) =>
+            $.eq(ingredient, $.str("Chicken"))
+          )
+        )
+        .orderBy("rating", "desc")
+    );
+
+    expect(result).toHaveLength(1);
+    expect((result as any)[0].name).toBe("Chicken soup");
+
+    await close();
+  });
+});
+
 describe("adding objects into the store", () => {
   it("returns an id for each object", async () => {
     const { add, close } = Store(":memory:");

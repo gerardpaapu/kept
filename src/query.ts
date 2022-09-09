@@ -3,6 +3,7 @@ import type sqlite3 from "sqlite3";
 interface IRow {
   id: number;
   json: string;
+  count?: number;
 }
 
 interface Query {
@@ -11,8 +12,9 @@ interface Query {
   paging: { skip: number; limit: number } | undefined;
 }
 
-interface Builder {
+export interface Builder {
   where(pred: TPredicate): Builder;
+  and(pred: TPredicate): Builder;
   orderBy(prop: string, order: "desc" | "asc"): Builder;
   paging(skip: number, limit: number): Builder;
   query: Query;
@@ -22,21 +24,20 @@ const builder = (query: Query): Builder => {
   return {
     query,
     where: (pred) => builder({ ...query, where: [...query.where, pred] }),
+    and: (pred) => builder({ ...query, where: [...query.where, pred] }),
     orderBy: (prop, order) => builder({ ...query, orderBy: { prop, order } }),
     paging: (skip, limit) => builder({ ...query, paging: { skip, limit } }),
   };
 };
 
-const q = () => builder({ where: [], orderBy: undefined, paging: undefined });
-
-q()
-  .where(($, row) => $.like(row.foo, "%poop%"))
-  .orderBy("breed", "desc");
+const empty = () =>
+  builder({ where: [], orderBy: undefined, paging: undefined });
 
 interface IBooleanAlg<V, T> {
   eq(a: V, b: V): T;
   gt(a: V, b: V): T;
   lt(a: V, b: V): T;
+  any(a: V, f: (value: V) => T): T;
   like(a: V, pattern: string): T;
   not(expr: T): T;
 }
@@ -75,6 +76,10 @@ const asSql: TInterpreter<string> = (alg) =>
       not: (a) => `NOT (${a})`,
       str: () => `?`,
       num: () => `?`,
+      any: (_a, f) =>
+        `EXISTS (SELECT * FROM objects butt, json_each(objects.json, ?)
+        WHERE ${f("json_each.value")} 
+        AND butt.id = objects.id)`,
     },
     asSqlProxy
   );
@@ -102,6 +107,7 @@ const asParams: TInterpreter<(string | number)[]> = (alg) =>
       not: (a) => a,
       str: (a) => [a],
       num: (a) => [a],
+      any: (a, f) => f(a),
     },
     asParamsProxy
   );
@@ -129,20 +135,24 @@ const compile = ({ query }: Builder) => {
   return [sql, ...params];
 };
 
-const queryRaw = (db: sqlite3.Database, f: (_: Builder) => Builder) =>
+export const queryRaw = (db: sqlite3.Database, f: (_: Builder) => Builder) =>
   new Promise<any[]>((resolve, reject) => {
-    const args = compile(f(q())) as [string, ...string[]];
+    const args = compile(f(empty())) as [string, ...string[]];
     console.log(args);
     db.all(...args, (err: Error | undefined, rows: IRow[]) => {
       if (err) {
         reject(err);
       } else {
-        resolve(rows.map(({ id, json }) => ({ id, ...JSON.parse(json) })));
+        resolve(
+          rows.map(({ id, json, count }) => ({
+            id,
+            count,
+            ...JSON.parse(json),
+          }))
+        );
       }
     });
   });
-
-export { queryRaw, Builder };
 
 export const greaterThan =
   (field: string, value: number): TPredicate =>
