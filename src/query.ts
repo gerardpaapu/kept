@@ -2,8 +2,7 @@ import type sqlite3 from "sqlite3";
 
 interface IRow {
   id: number;
-  json: string;
-  count?: number;
+  json0: string;
 }
 
 interface Query {
@@ -33,69 +32,50 @@ const builder = (query: Query): Builder => {
 const empty = () =>
   builder({ where: [], orderBy: undefined, paging: undefined });
 
-interface IBooleanAlg<V, T> {
-  eq(a: V, b: V): T;
-  gt(a: V, b: V): T;
-  lt(a: V, b: V): T;
-  any(a: V, f: (value: V) => T): T;
-  like(a: V, pattern: string): T;
+interface IComparisonAlg<TValue, TBoolean> {
+  eq(a: TValue, b: TValue): TBoolean;
+  gt(a: TValue, b: TValue): TBoolean;
+  lt(a: TValue, b: TValue): TBoolean;
+  like(a: TValue, pattern: string): TBoolean;
+  any(a: TValue, predicate: (item: TValue) => TBoolean): TBoolean;
+}
+
+interface IBooleanAlg<T> {
   not(expr: T): T;
 }
 
-interface ILiteralAlg<T> {
-  str(s: string): T;
-  num(n: number): T;
+interface ILiteralAlg<TValue> {
+  val(s: string | number): TValue;
+  get(obj: TValue, prop: string): TValue;
 }
 
-interface ITestAlg<V, T> extends ILiteralAlg<V>, IBooleanAlg<V, T> {}
+interface ITestAlg<TValue, TBoolean>
+  extends IComparisonAlg<TValue, TBoolean>,
+    ILiteralAlg<TValue>,
+    IBooleanAlg<TBoolean> {}
 
-type TPropsAlg<T> = {
-  [_ in string]: T;
-};
-
-type TPredicate = <T, V>(alg: ITestAlg<V, T>, col: TPropsAlg<V>) => T;
-
+type TPredicate = <T, V>(alg: ITestAlg<V, T>, row: V) => T;
 type TInterpreter<T> = (p: TPredicate) => T;
 
-const asSqlProxy = new Proxy(
-  {},
-  {
-    get() {
-      return `json_extract(json, ?)`;
-    },
-  }
-) as { [_ in string]: string };
-
-const asSql: TInterpreter<string> = (alg) =>
+const asSql: TInterpreter<(depth: number) => string> = (alg) =>
   alg(
     {
-      eq: (a, b) => `${a} = ${b}`,
-      gt: (a, b) => `${a} > ${b}`,
-      lt: (a, b) => `${a} < ${b}`,
-      like: (a) => `${a} LIKE ?`,
-      not: (a) => `NOT (${a})`,
-      str: () => `?`,
-      num: () => `?`,
-      any: (_a, f) =>
-        `EXISTS (SELECT * FROM objects butt, json_each(objects.json, ?)
-        WHERE ${f("json_each.value")} 
-        AND butt.id = objects.id)`,
-    },
-    asSqlProxy
+      eq: (a, b) => (n) => `${a(n)} = ${b(n)}`,
+      gt: (a, b) => (n) => `${a(n)} > ${b(n)}`,
+      lt: (a, b) => (n) => `${a(n)} < ${b(n)}`,
+      like: (a) => (n) => `${a(n)} LIKE ?`,
+      not: (a) => (n) => `NOT (${a(n)})`,
+      val: () => () => `?`,
+      get: (v) => (n) => `json_extract(${v(n)}, ?)`,
+      any: (a, f) => (depth: number) => {
+        const j = `j${depth}`;
+        return `EXISTS (SELECT ${j}.value as ${j} 
+                        FROM json_each(${a(depth)}, '$') as ${j}
+                        WHERE ${f(() => j)(depth + 1)})`;
+      },
+    } as ITestAlg<(_: number) => string, (_: number) => string>,
+    () => "json0"
   );
-
-const asParamsProxy = new Proxy(
-  {},
-  {
-    get(_, p: string | symbol) {
-      if (typeof p === "string") {
-        return [`$.${p}`];
-      } else {
-        return [`$.${p.description || p.toString()}`];
-      }
-    },
-  }
-) as { [_ in string]: (string | number)[] };
 
 const asParams: TInterpreter<(string | number)[]> = (alg) =>
   alg(
@@ -105,25 +85,25 @@ const asParams: TInterpreter<(string | number)[]> = (alg) =>
       lt: (a, b) => [...a, ...b],
       like: (a, b) => [...a, b],
       not: (a) => a,
-      str: (a) => [a],
-      num: (a) => [a],
-      any: (a, f) => f(a),
+      val: (a) => [a],
+      any: (a, f) => [...a, ...f([])],
+      get: (a, p) => [...a, `$.${p}`],
     },
-    asParamsProxy
+    [] as (string | number)[]
   );
 
 const compile = ({ query }: Builder) => {
   const lines = query.where.map(asSql);
   const params = query.where.flatMap(asParams);
-  let sql = "SELECT id, json FROM objects\n";
+  let sql = `SELECT id, json as json0 \nFROM objects\n`;
   if (lines.length > 0) {
     const [first, ...rest] = lines;
-    sql += `WHERE ${first}\n`;
-    sql += rest.map((line) => `AND ${line}\n`);
+    sql += `WHERE ${first(1)}\n`;
+    sql += rest.map((line) => `AND ${line(1)}\n`);
   }
 
   if (query.orderBy) {
-    sql += `ORDER BY json_extract(json, ?) ${query.orderBy.order.toUpperCase()}\n`;
+    sql += `ORDER BY json_extract(json0, ?) ${query.orderBy.order.toUpperCase()}\n`;
     params.push(`$.${query.orderBy.prop}`);
   }
 
@@ -144,9 +124,8 @@ export const queryRaw = (db: sqlite3.Database, f: (_: Builder) => Builder) =>
         reject(err);
       } else {
         resolve(
-          rows.map(({ id, json, count }) => ({
+          rows.map(({ id, json0: json }) => ({
             id,
-            count,
             ...JSON.parse(json),
           }))
         );
@@ -157,29 +136,29 @@ export const queryRaw = (db: sqlite3.Database, f: (_: Builder) => Builder) =>
 export const greaterThan =
   (field: string, value: number): TPredicate =>
   ($, row) =>
-    $.gt(row[field], $.num(value));
+    $.gt($.get(row, field), $.val(value));
 
 export const lessThan =
   (field: string, value: number): TPredicate =>
   ($, row) =>
-    $.lt(row[field], $.num(value));
+    $.lt($.get(row, field), $.val(value));
 
-export const numberEquals =
-  (field: string, value: number): TPredicate =>
+export const equals =
+  (field: string, value: number | string): TPredicate =>
   ($, row) =>
-    $.eq(row[field], $.num(value));
-
-export const stringEquals =
-  (field: string, value: string): TPredicate =>
-  ($, row) =>
-    $.eq(row[field], $.str(value));
+    $.eq($.get(row, field), $.val(value));
 
 export const like =
   (field: string, pattern: string): TPredicate =>
   ($, row) =>
-    $.like(row[field], pattern);
+    $.like($.get(row, field), pattern);
 
 export const not =
   (pred: TPredicate): TPredicate =>
-  ($, col) =>
-    $.not(pred($, col));
+  ($, row) =>
+    $.not(pred($, row));
+
+export const any =
+  (prop: string, pred: TPredicate): TPredicate =>
+  ($, row) =>
+    $.any($.get(row, prop), (v) => pred($, v));

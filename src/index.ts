@@ -2,14 +2,7 @@ import sqlite3 from "sqlite3";
 
 import { queryRaw, Builder } from "./query";
 
-export {
-  not,
-  like,
-  stringEquals,
-  numberEquals,
-  lessThan,
-  greaterThan,
-} from "./query";
+export { not, like, equals, lessThan, greaterThan } from "./query";
 
 export type TJSON =
   | string

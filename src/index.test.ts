@@ -1,5 +1,5 @@
 import { Store } from "./index";
-import { stringEquals, like, not } from "./query";
+import { equals, like, not, any } from "./query";
 
 const puppies: any[] = [
   {
@@ -56,8 +56,8 @@ describe("fancy queries", () => {
 
     const results = await query((select) =>
       select
-        .where(($, col) => $.eq(col.breed, $.str("Labrador")))
-        .where(($, col) => $.not($.like(col.owner, "Ric%")))
+        .where(($, col) => $.eq($.get(col, "breed"), $.val("Labrador")))
+        .where(($, col) => $.not($.like($.get(col, "owner"), "Ric%")))
         .orderBy("owner", "asc")
         .paging(0, 3)
     );
@@ -78,7 +78,7 @@ describe("fancy queries (with helpers)", () => {
 
     const results = await query((select) =>
       select
-        .where(stringEquals("breed", "Labrador"))
+        .where(equals("breed", "Labrador"))
         .where(not(like("owner", "Ric%")))
         .orderBy("owner", "asc")
         .paging(0, 3)
@@ -105,18 +105,53 @@ describe("any item in an array", () => {
     });
 
     const result = await query((soup) =>
-      soup
-        .where(($, col) => $.not($.eq(col.author, $.str("Jamie Oliver"))))
-        .where(($, col) =>
-          $.any(col.ingredients, (ingredient) =>
-            $.eq(ingredient, $.str("Chicken"))
-          )
+      soup.where(($, row) =>
+        $.any($.get(row, "ingredients"), (ingredient) =>
+          $.eq(ingredient, $.val("Chicken"))
         )
-        .orderBy("rating", "desc")
+      )
     );
 
     expect(result).toHaveLength(1);
     expect((result as any)[0].name).toBe("Chicken soup");
+
+    await close();
+  });
+});
+
+describe(`Nested any calls`, () => {
+  it(`Fuck knows`, async () => {
+    const { add, query, close } = Store(":memory:");
+    await add({
+      name: "Chicken soup",
+      ingredients: [
+        { name: "Noodles", alternatives: [] },
+        { name: "Broth", alternatives: [] },
+        { name: "Chicken", alternatives: ["Tofu"] },
+        { name: "Vegetables", alternatives: ["meat"] },
+      ],
+    });
+
+    await add({
+      name: "Pea soup",
+      ingredients: [
+        { name: "Peas", alternatives: [] },
+        { name: "Salt", alternatives: ["sugar"] },
+      ],
+    });
+
+    const result = await query((soup) =>
+      soup.where(($, row) =>
+        $.any($.get(row, "ingredients"), (ingredient) =>
+          $.any($.get(ingredient, "alternatives"), (alt) =>
+            $.like(alt, "sugar")
+          )
+        )
+      )
+    );
+
+    expect(result).toHaveLength(1);
+    expect((result as any)[0].name).toBe("Pea soup");
 
     await close();
   });
