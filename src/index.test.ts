@@ -105,11 +105,13 @@ describe("any item in an array", () => {
     });
 
     const result = await query((soup) =>
-      soup.where(($, row) =>
-        $.any($.get(row, "ingredients"), (ingredient) =>
-          $.eq(ingredient, $.val("Chicken"))
+      soup
+        .where(($, row) =>
+          $.any($.get(row, "ingredients"), (ingredient) =>
+            $.eq(ingredient, $.val("Chicken"))
+          )
         )
-      )
+        .where(($, row) => $.like($.get(row, "name"), "% soup"))
     );
 
     expect(result).toHaveLength(1);

@@ -92,6 +92,15 @@ const asParams: TInterpreter<(string | number)[]> = (alg) =>
     [] as (string | number)[]
   );
 
+// can we achieve something like this?
+// where((obj) =>
+//   obj
+//     .prop("breed")
+//     .like("Labrador") // I don't really like how this is laid out
+//     .like('breed', 'labrador') // ? is this better
+//     .and(obj.prop("friends").any((friend) => friend.like("James")))
+// );
+
 const compile = ({ query }: Builder) => {
   const lines = query.where.map(asSql);
   const params = query.where.flatMap(asParams);
@@ -118,7 +127,6 @@ const compile = ({ query }: Builder) => {
 export const queryRaw = (db: sqlite3.Database, f: (_: Builder) => Builder) =>
   new Promise<any[]>((resolve, reject) => {
     const args = compile(f(empty())) as [string, ...string[]];
-    console.log(args);
     db.all(...args, (err: Error | undefined, rows: IRow[]) => {
       if (err) {
         reject(err);
