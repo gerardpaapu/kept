@@ -2,7 +2,7 @@ import sqlite3 from "sqlite3";
 
 import { queryRaw, Builder } from "./query";
 
-export { not, like, equals, lessThan, greaterThan } from "./query";
+export { not, like, equals, lessThan, greaterThan, prop, any } from "./query";
 
 export type TJSON =
   | string
@@ -300,7 +300,7 @@ export const Store = (filename: string): IKept => {
 
   const query = async (build: (_: Builder) => Builder) => {
     const db = await init();
-    return queryRaw(db, build);
+    return queryRaw(db, build) as Promise<TJSON[]>;
   };
 
   return {

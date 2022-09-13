@@ -7,15 +7,17 @@ interface IRow {
 
 interface Query {
   where: TPredicate[];
-  orderBy: { prop: string; order: "asc" | "desc" } | undefined;
-  paging: { skip: number; limit: number } | undefined;
+  orderBy: { prop: TPicker; order: "asc" | "desc" } | undefined;
+  skip: number | undefined;
+  limit: number | undefined;
 }
 
 export interface Builder {
   where(pred: TPredicate): Builder;
   and(pred: TPredicate): Builder;
-  orderBy(prop: string, order: "desc" | "asc"): Builder;
-  paging(skip: number, limit: number): Builder;
+  orderBy(prop: TPicker, order: "desc" | "asc"): Builder;
+  skip(count: number): Builder;
+  limit(count: number): Builder;
   query: Query;
 }
 
@@ -25,12 +27,13 @@ const builder = (query: Query): Builder => {
     where: (pred) => builder({ ...query, where: [...query.where, pred] }),
     and: (pred) => builder({ ...query, where: [...query.where, pred] }),
     orderBy: (prop, order) => builder({ ...query, orderBy: { prop, order } }),
-    paging: (skip, limit) => builder({ ...query, paging: { skip, limit } }),
+    skip: (count) => builder({ ...query, skip: count }),
+    limit: (count) => builder({ ...query, limit: count }),
   };
 };
 
 const empty = () =>
-  builder({ where: [], orderBy: undefined, paging: undefined });
+  builder({ where: [], orderBy: undefined, skip: undefined, limit: undefined });
 
 interface IComparisonAlg<TValue, TBoolean> {
   eq(a: TValue, b: TValue): TBoolean;
@@ -41,12 +44,15 @@ interface IComparisonAlg<TValue, TBoolean> {
 }
 
 interface IBooleanAlg<T> {
+  and(left: T, right: T): T;
+  or(left: T, right: T): T;
   not(expr: T): T;
 }
 
 interface ILiteralAlg<TValue> {
   val(s: string | number): TValue;
   get(obj: TValue, prop: string): TValue;
+  id(): TValue;
 }
 
 interface ITestAlg<TValue, TBoolean>
@@ -54,19 +60,44 @@ interface ITestAlg<TValue, TBoolean>
     ILiteralAlg<TValue>,
     IBooleanAlg<TBoolean> {}
 
-type TPredicate = <T, V>(alg: ITestAlg<V, T>, row: V) => T;
+type TPredicate = <T, V>(alg: ITestAlg<V, T>, record: V) => T;
+type TPicker = <V>(alg: ILiteralAlg<V>, record: V) => V;
 type TInterpreter<T> = (p: TPredicate) => T;
+type TValueInterpreter<T> = (p: TPicker) => T;
 
-const asSql: TInterpreter<(depth: number) => string> = (alg) =>
-  alg(
+const getSqlValue: TValueInterpreter<string> = (scr) =>
+  scr(
+    {
+      get: (obj) => `json_extract(${obj}, ?)`,
+      val: () => `?`,
+      id: () => "objects.id",
+    },
+    "json0"
+  );
+
+const getParamsValue: TValueInterpreter<(string | number)[]> = (scr) =>
+  scr(
+    {
+      get: (obj, value) => [`$.${value}`],
+      val: (s) => [s],
+      id: () => [],
+    },
+    [] as (number | string)[]
+  );
+
+const asSql: TInterpreter<(depth: number) => string> = (query) =>
+  query(
     {
       eq: (a, b) => (n) => `${a(n)} = ${b(n)}`,
       gt: (a, b) => (n) => `${a(n)} > ${b(n)}`,
       lt: (a, b) => (n) => `${a(n)} < ${b(n)}`,
       like: (a) => (n) => `${a(n)} LIKE ?`,
       not: (a) => (n) => `NOT (${a(n)})`,
+      and: (a, b) => (n) => `(${a(n)} AND ${b(n)})`,
+      or: (a, b) => (n) => `(${a(n)} OR ${b(n)})`,
       val: () => () => `?`,
       get: (v) => (n) => `json_extract(${v(n)}, ?)`,
+      id: () => () => `id`,
       any: (a, f) => (depth: number) => {
         const j = `j${depth}`;
         return `EXISTS (SELECT ${j}.value as ${j} 
@@ -77,17 +108,20 @@ const asSql: TInterpreter<(depth: number) => string> = (alg) =>
     () => "json0"
   );
 
-const asParams: TInterpreter<(string | number)[]> = (alg) =>
-  alg(
+const asParams: TInterpreter<(string | number)[]> = (query) =>
+  query(
     {
       eq: (a, b) => [...a, ...b],
       gt: (a, b) => [...a, ...b],
       lt: (a, b) => [...a, ...b],
       like: (a, b) => [...a, b],
       not: (a) => a,
+      and: (a, b) => [...a, ...b],
+      or: (a, b) => [...a, ...b],
       val: (a) => [a],
       any: (a, f) => [...a, ...f([])],
       get: (a, p) => [...a, `$.${p}`],
+      id: () => [],
     },
     [] as (string | number)[]
   );
@@ -112,20 +146,29 @@ const compile = ({ query }: Builder) => {
   }
 
   if (query.orderBy) {
-    sql += `ORDER BY json_extract(json0, ?) ${query.orderBy.order.toUpperCase()}\n`;
-    params.push(`$.${query.orderBy.prop}`);
+    const _sql = getSqlValue(query.orderBy.prop);
+    const _params = getParamsValue(query.orderBy.prop);
+    sql += `ORDER BY ${_sql} ${query.orderBy.order.toUpperCase()}\n`;
+    params.push(..._params);
   }
+  const { skip, limit } = query;
 
-  if (query.paging) {
-    const { skip, limit } = query.paging;
+  if (skip && limit) {
     sql += `LIMIT ? OFFSET ?`;
     params.push(limit, skip);
+  } else if (skip) {
+    sql += `OFFSET ?`;
+    params.push(skip);
+  } else if (limit) {
+    sql += `LIMIT ?`;
+    params.push(limit);
   }
+
   return [sql, ...params];
 };
 
 export const queryRaw = (db: sqlite3.Database, f: (_: Builder) => Builder) =>
-  new Promise<any[]>((resolve, reject) => {
+  new Promise<unknown[]>((resolve, reject) => {
     const args = compile(f(empty())) as [string, ...string[]];
     db.all(...args, (err: Error | undefined, rows: IRow[]) => {
       if (err) {
@@ -170,3 +213,8 @@ export const any =
   (prop: string, pred: TPredicate): TPredicate =>
   ($, row) =>
     $.any($.get(row, prop), (v) => pred($, v));
+
+export const prop =
+  (key: string): TPicker =>
+  ($, row) =>
+    $.get(row, key);

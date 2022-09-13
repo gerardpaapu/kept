@@ -1,5 +1,5 @@
 import { Store } from "./index";
-import { equals, like, not, any } from "./query";
+import { equals, like, not } from "./query";
 
 const puppies: any[] = [
   {
@@ -58,8 +58,8 @@ describe("fancy queries", () => {
       select
         .where(($, col) => $.eq($.get(col, "breed"), $.val("Labrador")))
         .where(($, col) => $.not($.like($.get(col, "owner"), "Ric%")))
-        .orderBy("owner", "asc")
-        .paging(0, 3)
+        .orderBy(($, col) => $.get(col, "owner"), "asc")
+        .limit(3)
     );
 
     expect(results).toHaveLength(3);
@@ -80,8 +80,9 @@ describe("fancy queries (with helpers)", () => {
       select
         .where(equals("breed", "Labrador"))
         .where(not(like("owner", "Ric%")))
-        .orderBy("owner", "asc")
-        .paging(0, 3)
+        .orderBy(($, col) => $.get(col, "owner"), "asc")
+        .skip(0)
+        .limit(3)
     );
 
     expect(results).toHaveLength(3);
