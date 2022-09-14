@@ -1,7 +1,9 @@
-import { ITestAlg, TInterpreter, TPredicate } from "./algebra";
+import type { TInterpreter, TPredicate } from "./algebra";
 
-const asSql: TInterpreter<(depth: number) => string> = (query) =>
-  query(
+type DepthString = (depth: number) => string;
+
+const asSql: TInterpreter<DepthString> = (query) =>
+  query<DepthString, DepthString>(
     {
       eq: (a, b) => (n) => `${a(n)} = ${b(n)}`,
       gt: (a, b) => (n) => `${a(n)} > ${b(n)}`,
@@ -19,7 +21,7 @@ const asSql: TInterpreter<(depth: number) => string> = (query) =>
                         FROM json_each(${a(depth)}, '$') as ${j}
                         WHERE ${f(() => j)(depth + 1)})`;
       },
-    } as ITestAlg<(_: number) => string, (_: number) => string>,
+    },
     () => "json0"
   );
 

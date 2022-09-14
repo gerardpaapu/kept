@@ -2,16 +2,6 @@ import { queryRaw } from "./query";
 import type { IBuilder } from "./query/builder";
 import * as DB from "./db";
 
-export {
-  not,
-  like,
-  equals,
-  lessThan,
-  greaterThan,
-  prop,
-  any,
-} from "./query/helpers";
-
 export type TJSON =
   | string
   | number
@@ -194,6 +184,9 @@ export const Store = (filename: string): IKept => {
   };
 
   const update = async <T extends TJSON>(id: number, mapper: (_: T) => T) => {
+    const MAX_ATTEMPTS = 10;
+    const DELAY_SIZE = 40;
+
     const wait = (n: number) =>
       new Promise<void>((resolve) => {
         setTimeout(() => {
@@ -218,8 +211,8 @@ export const Store = (filename: string): IKept => {
         );
         await db.run("COMMIT");
       } catch (error) {
-        if (retries > 0 && (error as any).errno === 5) {
-          const maxDelay = 50 * Math.pow(2, 12 - retries);
+        if (retries <= MAX_ATTEMPTS && (error as any).errno === 5) {
+          const maxDelay = DELAY_SIZE * Math.pow(2, retries);
           delay = Math.floor(Math.random() * maxDelay);
         } else {
           throw error;
@@ -230,11 +223,11 @@ export const Store = (filename: string): IKept => {
 
       if (delay != null) {
         await wait(delay);
-        await attempt(retries - 1);
+        await attempt(retries + 1);
       }
     };
 
-    return attempt(12);
+    return attempt(0);
   };
 
   return {

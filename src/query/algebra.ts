@@ -1,24 +1,3 @@
-export interface IRow {
-  id: number;
-  json0: string;
-}
-
-export interface Query {
-  where: TPredicate[];
-  orderBy: { prop: TPicker; order: "asc" | "desc" } | undefined;
-  skip: number | undefined;
-  limit: number | undefined;
-}
-
-export interface Builder {
-  where(pred: TPredicate): Builder;
-  and(pred: TPredicate): Builder;
-  orderBy(prop: TPicker, order: "desc" | "asc"): Builder;
-  skip(count: number): Builder;
-  limit(count: number): Builder;
-  query: Query;
-}
-
 export interface IComparisonAlg<TValue, TBoolean> {
   eq(a: TValue, b: TValue): TBoolean;
   gt(a: TValue, b: TValue): TBoolean;

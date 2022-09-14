@@ -27,13 +27,13 @@ const compileBuilder = ({
     params.push(...value.params);
   }
 
-  const { skip, limit } = query;
-  if (skip && limit) {
+  const { offset, limit } = query;
+  if (offset && limit) {
     sql += `LIMIT ? OFFSET ?`;
-    params.push(limit, skip);
-  } else if (skip) {
+    params.push(limit, offset);
+  } else if (offset) {
     sql += `OFFSET ?`;
-    params.push(skip);
+    params.push(offset);
   } else if (limit) {
     sql += `LIMIT ?`;
     params.push(limit);

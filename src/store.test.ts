@@ -84,7 +84,7 @@ describe("fancy queries (with helpers)", () => {
         .where(equals("breed", "Labrador"))
         .where(not(like("owner", "Ric%")))
         .orderBy(prop("owner"), "asc")
-        .skip(0)
+        .offset(0)
         .limit(3)
     );
 
