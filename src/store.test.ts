@@ -1,5 +1,8 @@
-import { Store } from "./index";
-import { equals, like, not } from "./query";
+import { Store } from "./store";
+import { equals, like, not, prop } from "./query/helpers";
+import * as OS from "node:os";
+import * as FS from "node:fs/promises";
+import * as Path from "node:path";
 
 const puppies: any[] = [
   {
@@ -80,7 +83,7 @@ describe("fancy queries (with helpers)", () => {
       select
         .where(equals("breed", "Labrador"))
         .where(not(like("owner", "Ric%")))
-        .orderBy(($, col) => $.get(col, "owner"), "asc")
+        .orderBy(prop("owner"), "asc")
         .skip(0)
         .limit(3)
     );
@@ -216,13 +219,58 @@ describe("find one matching object", () => {
 
 describe("find all matching objects", () => {
   it(`gets all the objects matching the given criteria`, async () => {
-    const { add: put, findBy, close } = Store(":memory:");
+    const { add, findBy, close } = Store(":memory:");
     for (const puppy of puppies) {
-      await put(puppy);
+      await add(puppy);
     }
     const labs = await findBy("breed", "Labrador");
 
     expect(labs).toHaveLength(5);
+
+    await close();
+  });
+});
+
+describe("Concurrent update", () => {
+  it(`preserves all writes`, async () => {
+    const tempdir = await FS.mkdtemp(Path.join(OS.tmpdir(), "kept-"));
+    const path = Path.join(tempdir, "data.db");
+    const { add, update, get, close } = Store(path);
+
+    const id = await add({ a: 0, b: 0, c: 0 });
+    await Promise.all([
+      update<Record<string, number>>(id, (prev) => ({
+        ...prev,
+        a: prev.a + 1,
+      })),
+      update<Record<string, number>>(id, (prev) => ({
+        ...prev,
+        b: prev.b + 1,
+      })),
+      update<Record<string, number>>(id, (prev) => ({
+        ...prev,
+        c: prev.c + 1,
+      })),
+      update<Record<string, number>>(id, (prev) => ({
+        ...prev,
+        a: prev.a + 1,
+      })),
+      update<Record<string, number>>(id, (prev) => ({
+        ...prev,
+        b: prev.b + 1,
+      })),
+      update<Record<string, number>>(id, (prev) => ({
+        ...prev,
+        c: prev.c + 1,
+      })),
+    ]);
+
+    const result = await get(id);
+    expect(result).toStrictEqual({
+      a: 2,
+      b: 2,
+      c: 2,
+    });
 
     await close();
   });

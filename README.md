@@ -188,7 +188,7 @@ of an array property.
 ## Order by
 
 `orderBy` uses a subset of the query DSL that returns TValues, the second argument must
-be either `'asc'` or `'desc'`
+be either `'asc'` or `'desc'`.
 
 ```js
 import { equal, prop } from '@donothing/kept'
