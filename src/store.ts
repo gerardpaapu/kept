@@ -1,4 +1,8 @@
 import { queryRaw } from "./query";
+import {
+  wrappedQueryRaw,
+  IBuilder as IWrappedBuilder,
+} from "./query/wrapped-builder";
 import type { IBuilder } from "./query/builder";
 import * as DB from "./db";
 
@@ -65,6 +69,10 @@ export interface IKept {
    * @param build
    */
   query(build: (_: IBuilder) => IBuilder): Promise<TJSON[]>;
+
+  wrappedQuery(
+    build: (_: IWrappedBuilder) => IWrappedBuilder
+  ): Promise<TJSON[]>;
 
   /**
    * Atomically update a record, this uses transactions and retries so it's expensive and may fail
@@ -183,6 +191,13 @@ export const Store = (filename: string): IKept => {
     return queryRaw(db, build) as Promise<TJSON[]>;
   };
 
+  const wrappedQuery = async (
+    build: (_: IWrappedBuilder) => IWrappedBuilder
+  ) => {
+    const db = await getConnection();
+    return wrappedQueryRaw(db, build) as Promise<TJSON[]>;
+  };
+
   const update = async <T extends TJSON>(id: number, mapper: (_: T) => T) => {
     const MAX_ATTEMPTS = 10;
     const DELAY_SIZE = 40;
@@ -240,6 +255,7 @@ export const Store = (filename: string): IKept => {
     all,
     close,
     query,
+    wrappedQuery,
     update,
   };
 };

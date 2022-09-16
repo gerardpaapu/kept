@@ -72,6 +72,28 @@ describe("fancy queries", () => {
   });
 });
 
+describe("fancy wrapped queries", () => {
+  it("works at all, I will be shocked", async () => {
+    const { add, wrappedQuery, close } = Store(":memory:");
+    for (const puppy of puppies) {
+      await add(puppy);
+    }
+
+    const results = await wrappedQuery((select) =>
+      select
+        .where((pup) => pup.get("breed").eq("Labrador"))
+        .where((pup) => pup.get("owner").like("Ric%").not())
+        .orderBy((pup) => pup.get("owner"), "asc")
+        .limit(3)
+    );
+
+    expect(results).toHaveLength(3);
+    expect((results[0] as any).owner).toBe("Brianna");
+
+    await close();
+  });
+});
+
 describe("fancy queries (with helpers)", () => {
   it("gets all the right stuff", async () => {
     const { add, query, close } = Store(":memory:");
@@ -154,6 +176,52 @@ describe(`Nested any calls`, () => {
           )
         )
       )
+    );
+
+    expect(result).toHaveLength(1);
+    expect((result as any)[0].name).toBe("Pea soup");
+
+    await close();
+  });
+});
+
+describe(`Nested any calls (wrapped)`, () => {
+  it(`Fuck knows`, async () => {
+    const { add, wrappedQuery, close } = Store(":memory:");
+    await add({
+      name: "Chicken soup",
+      ingredients: [
+        { name: "Noodles", alternatives: [] },
+        { name: "Broth", alternatives: [] },
+        { name: "Chicken", alternatives: ["Tofu"] },
+        { name: "Vegetables", alternatives: ["meat"] },
+      ],
+    });
+
+    await add({
+      name: "Pea soup",
+      ingredients: [
+        { name: "Peas", alternatives: [] },
+        { name: "Salt", alternatives: ["sugar"] },
+      ],
+    });
+
+    const result = await wrappedQuery(
+      (soup) =>
+        soup.where((recipe) =>
+          recipe
+            .get("ingredients")
+            .any((ingredient) =>
+              ingredient.get("alternatives").any((alt) => alt.like("sugar"))
+            )
+        )
+      // soup.where(($, row) =>
+      //   $.any($.get(row, "ingredients"), (ingredient) =>
+      //     $.any($.get(ingredient, "alternatives"), (alt) =>
+      //       $.like(alt, "sugar")
+      //     )
+      //   )
+      // )
     );
 
     expect(result).toHaveLength(1);
