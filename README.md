@@ -177,7 +177,7 @@ import { equal, prop } from '@donothing/kept'
 
 const doggos = await store.query(
   dogs => dogs
-    .where(dog => dog.get('breed').eq('Alsatian'))pnpm 
+    .where(dog => dog.get('breed').eq('Alsatian'))
     .orderBy(dog => dog.get('weight'), 'asc')
     .offset(3) // start at the 4th result
     .limit(5) // return up to 5 results
