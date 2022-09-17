@@ -11,132 +11,86 @@ const doggos = await store.query(dogs => dogs)
 You can filter down the results with `.where(predicate)` or the
 equivalent `.and(predicate)`.
 
-A predicate function is passed an object with utility functions and
-a value representing each object in the store.
+A predicate function is passed an object representing each record in the store
+and returns a value that represents a boolean.
 
 ```js
-const doggos = await store.query(
+const alsatians = await store.query(
   dogs => dogs
-    .where(($, obj) => $.eq($.get(obj, 'breed'), $.val('Alsatian')))
-)
-```
-
-That syntax is a bit heavy, so we provide helper functions to do most
-of the same types of queries.
-
-```js
-import { equal } from '@donothing/kept'
-
-const doggos = await store.query(
-  dogs => dogs.where(equal('breed', 'Alsatian'))
+    .where(dog => dog.get('breed').eq('Alsatian'))
 )
 ```
 
 additional clauses can be added by chaining `.where(...)` or `.and(...)`
 
 ```js
-import { equal } from '@donothing/kept'
-
 const doggos = await store.query(
   dogs => dogs
-    .where(equal('breed', 'Alsatian'))
-    .and(equal('weight', 35))
+    .where(dog => dog.get('breed').eq('Alsatian'))
+    .and(dog => dog.get('weight').eq(35))
 )
 ```
 
 ### Comparisons
 
+on an expression, `.eq( )` can be passed a string or number, or another expression
+and represents an equality comparison
+
 ```js
-import { equal, greaterThan, lessThan, like } from '@donothing/kept'
+value.eq('something')
+value.eq(12)
+value.eq(value)
+```
 
-// all objects with a weight equal to 4
-($, obj) => $.eq($.get(obj, 'weight'), $.val(4)))
-equal('weight', 4)
+You can also use `.gt(...)` or `.lt(...)` for "greater than" or "less than" comparisons.
 
-// all objects with a weight greater than 4
-($, obj) => $.gt($.get(obj, 'weight'), $.val(4)))
-greaterThan('weight', 4)
+These either take a number or a second expression
 
-// all objects with a weight less than 4
-($, obj) => 
-lessThan('weight', 4)
-
-// all objects with a name that starts with 'F'
-($, obj) => $.like($.get(obj, 'name'), 'F%')
-like('name', 'F%')
+```js
+value.gt(4)
+value.lt(2)
+value.lt(value)
 ```
 
 ### Boolean operations
 
 Truth values can be combined in the normal ways using
-`.and(...)`, `.or(...)` and `.not(...)`.
+`.and(...)`, `.or(...)` and `.not()`.
 
 ```js
-import { and, or, not } from '@donothing/kept'
-
-// all objects with a weight less than 4
-// AND a name starting wtih 'F'
-($, obj) => $.and(
-  $.lt($.get(obj, 'weight'), $.val(4)),
-  $.like($.get(obj, 'name'), 'F%')
-)
-
-and(
-  lessThan('weight', 4),
-  like('name', 'F%')
-)
-
 // all objects with a weight less than 4
 // OR a name starting wtih 'F'
-($, obj) => $.or(
-  $.lt($.get(obj, 'weight'), $.val(4)),
-  $.like($.get(obj, 'name'), 'F%')
-)
-
-or(
-  lessThan('weight', 4),
-  like('name', 'F%')
-)
+dog.get('weight').lt(4)
+  .or(dog.get('name').like('F%'))
 
 // all objects where the name does NOT start
 // with 'F'
-($, obj) => $.not($.like($.get(obj, 'name'), 'F%'))
-not(like('name', 'F%'))
+dog.get('name').not.like('F%') // these two expressions are equivalent
+dog.get('name').like('F%').not()
 ```
 
 ### Values
 
-The second parameter to a predicate is a `TValue`. Values can be
-extracted from a value with `$.get(...)`. The id for the record 
-can be gotten as `$.id()`, and `$.val(...)` introduces literal numbers
-or strings.
+You can get other values from an expression with `.get(property: string)` or `.id()`
 
 ```js
 // get the id for this record
-($, obj) => $.id()
+(obj) => obj.id()
 
 // gets the property 'foo' on obj
-($, obj) => $.get(obj, 'foo')
-
-// numbers or strings can be used when wrapped in
-// $.val(...)
-($, obj) => $.val('some text')
-($, obj) => $.val(99)
+(obj) => obj.get('foo')
 ```
 
 ### Any
 
-The `$.any(...)` method allows you to inspect each item
+The `.any(...)` method allows you to inspect each item
 of an array property.
 
 ```js
 // matches objects like { ingredients: ['Sugar', 'Flour', 'Eggs'] }
-($, obj) => $.any(
-  $.get(obj, 'ingredients'), 
-  ingredient => $.like(ingredient, 'Sugar'))
+recipe =>
+  recipe.get('ingredients').any(ingredient => ingredient.like('Sugar'))
 ```
-
-I haven't found a useful way to write these with "helpers" yet
 
 ## Order by
 
@@ -144,24 +98,13 @@ I haven't found a useful way to write these with "helpers" yet
 be either `'asc'` or `'desc'`.
 
 ```js
+// get all alsatians, from lightest to heaviest
 const doggos = await store.query(
   dogs => dogs
-    .where(($, obj) => $.eq($.get(obj, 'breed'), 'Alsatian'))
-    .orderBy(($, obj) => $.get(obj, 'weight'), 'asc')
-)
-```
-
-... or the equivalent with helpers
-
-```js
-import { equal, prop } from '@donothing/kept'
-
-const doggos = await store.query(
-  dogs => dogs
-    .where(equal('breed', 'Alsatian'))
-    // the first parameter should be a field of the object 
+    .where(dog => dog.get('breed').eq('Alsatian'))
+    // the first parameter should be some value derived from the object
     // the second parameter should be 'asc' or 'desc'
-    .orderBy(prop('weight'), 'asc')
+    .orderBy(dog => dog.get('weight'), 'asc')
 )
 ```
 
@@ -174,10 +117,8 @@ import { equal, prop } from '@donothing/kept'
 
 const doggos = await store.query(
   dogs => dogs
-    .where(equal('breed', 'Alsatian'))
-    // the first parameter should be a field of the object 
-    // the second parameter should be 'asc' or 'desc'
-    .orderBy(prop('weight'), 'asc')
+    .where(dog => dog.get('breed').eq('Alsatian'))pnpm 
+    .orderBy(dog => dog.get('weight'), 'asc')
     .offset(3) // start at the 4th result
     .limit(5) // return up to 5 results
 )

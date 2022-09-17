@@ -1,11 +1,16 @@
 import compileCondition from "./compile-condition";
 import compileValue from "./compile-value";
-import type { IBuilder } from "./builder";
+import type { IBuilder } from "./wrapped-builder";
+import { TPredicate } from "./algebra";
+import { convertPicker, wrapValue } from "./wrapper";
 
 const compileBuilder = ({
   query,
 }: IBuilder): [sql: string, ...args: (string | number)[]] => {
-  const conditions = query.where.map(compileCondition);
+  const conditions = query.where.map((w) => {
+    const p: TPredicate = ($, v) => w(wrapValue(() => v as any)).unwrap()($);
+    return compileCondition(p);
+  });
   let sql = `SELECT id, json as json0 \nFROM objects\n`;
   const params = [] as (string | number)[];
 
@@ -21,7 +26,8 @@ const compileBuilder = ({
   }
 
   if (query.orderBy) {
-    const value = compileValue(query.orderBy.prop);
+    const { prop } = query.orderBy;
+    const value = compileValue(convertPicker(prop));
 
     sql += `ORDER BY ${value.sql} ${query.orderBy.order.toUpperCase()}\n`;
     params.push(...value.params);

@@ -1,6 +1,6 @@
 import type { Database } from "../db";
-import type { IBuilder } from "./builder";
-import * as Builder from "./builder";
+import { IBuilder, empty } from "./wrapped-builder";
+import compileBuilder from "./compile-builder";
 
 interface IRow {
   id: number;
@@ -11,7 +11,7 @@ export const queryRaw = async (
   db: Database,
   build: (_: IBuilder) => IBuilder
 ) => {
-  const args = Builder.compile(build(Builder.empty()));
+  const args = compileBuilder(build(empty()));
   const rows = await db.all(...args);
   // TODO: this cast is not ideal
   return (rows as unknown as IRow[]).map(({ id, json0: json }) => ({
