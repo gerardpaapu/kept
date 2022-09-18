@@ -1,4 +1,4 @@
-import { TPicker, TValueInterpreter } from "./algebra";
+import { TPicker, TValueInterpreter } from "../../query/algebra";
 
 const getSqlValue: TValueInterpreter<string> = (scr) =>
   scr(

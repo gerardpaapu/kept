@@ -1,5 +1,5 @@
-import type { Database } from "../db";
-import { IBuilder, empty } from "./wrapped-builder";
+import type { Database } from "./db";
+import { IBuilder, empty } from "../../query/builder";
 import compileBuilder from "./compile-builder";
 
 interface IRow {

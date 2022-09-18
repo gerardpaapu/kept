@@ -14,8 +14,13 @@ export interface IPickerW {
 }
 
 export interface IValueW {
+  /**
+   * Get the row id of the current object
+   */
   id(): IValueW;
+  /** get a property of this value */
   get(prop: string): IValueW;
+  /** compare equality  */
   eq(_: string | number | IValueW): IBooleanW;
   gt(_: number | IValueW): IBooleanW;
   lt(_: number | IValueW): IBooleanW;

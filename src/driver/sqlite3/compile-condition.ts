@@ -1,4 +1,4 @@
-import type { TInterpreter, TPredicate } from "./algebra";
+import type { TInterpreter, TPredicate } from "../../query/algebra";
 
 type DepthString = (depth: number) => string;
 

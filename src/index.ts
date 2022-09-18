@@ -1,1 +1,1 @@
-export { Store, IKept } from "./store";
+export { Store } from "./driver/sqlite3/store";

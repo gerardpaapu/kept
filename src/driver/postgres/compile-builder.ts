@@ -1,17 +1,20 @@
 import compileCondition from "./compile-condition";
 import compileValue from "./compile-value";
-import type { IBuilder } from "./wrapped-builder";
-import { TPredicate } from "./algebra";
-import { convertPicker, wrapValue } from "./wrapper";
+import type { IBuilder } from "../../query/builder";
+import { TPredicate } from "../../query/algebra";
+import { convertPicker, wrapValue } from "../../query/wrapper";
 
 const compileBuilder = ({
   query,
 }: IBuilder): [sql: string, ...args: (string | number)[]] => {
+  let start = 1;
   const conditions = query.where.map((w) => {
     const p: TPredicate = ($, v) => w(wrapValue(() => v as any)).unwrap()($);
-    return compileCondition(p);
+    const result = compileCondition(p, start);
+    start += result.params.length;
+    return result;
   });
-  let sql = `SELECT id, json as json0 \nFROM objects\n`;
+  let sql = `SELECT id, json \nFROM objects\n`;
   const params = [] as (string | number)[];
 
   if (conditions.length > 0) {
@@ -27,7 +30,7 @@ const compileBuilder = ({
 
   if (query.orderBy) {
     const { prop } = query.orderBy;
-    const value = compileValue(convertPicker(prop));
+    const value = compileValue(convertPicker(prop), params.length + 1);
 
     sql += `ORDER BY ${value.sql} ${query.orderBy.order.toUpperCase()}\n`;
     params.push(...value.params);
@@ -35,13 +38,13 @@ const compileBuilder = ({
 
   const { offset, limit } = query;
   if (offset && limit) {
-    sql += `LIMIT ? OFFSET ?`;
+    sql += `LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     params.push(limit, offset);
   } else if (offset) {
-    sql += `OFFSET ?`;
+    sql += `OFFSET $${params.length + 1}`;
     params.push(offset);
   } else if (limit) {
-    sql += `LIMIT ?`;
+    sql += `LIMIT $${params.length + 1}`;
     params.push(limit);
   }
 
