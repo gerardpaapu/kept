@@ -1,4 +1,4 @@
-import { newDb } from "pg-mem";
+import { Pool } from "pg";
 
 export interface IRow {
   id: string;
@@ -12,19 +12,10 @@ export interface Database {
   all(sql: string, ...params: (number | string)[]): Promise<IRow[]>;
   run(sql: string, ...params: (number | string)[]): Promise<IRow[]>;
   close(): Promise<void>;
-  unwrap(): PgClient;
+  unwrap(): Pool;
 }
 
-interface Result {
-  rows: unknown[];
-}
-
-interface PgClient {
-  query(sql: string, values?: (string | number)[]): Promise<Result>;
-  end(): Promise<void>;
-}
-
-const wrap = (db: PgClient): Database => ({
+const wrap = (db: Pool): Database => ({
   unwrap: () => db,
 
   get: async (sql, ...params) => {
@@ -34,8 +25,6 @@ const wrap = (db: PgClient): Database => ({
   },
 
   all: async (sql, ...params) => {
-    console.log({ sql, params });
-
     const { rows } = await db.query(sql, params);
     return rows as IRow[];
   },
@@ -48,8 +37,7 @@ const wrap = (db: PgClient): Database => ({
   close: () => db.end(),
 });
 
-export const create = () => {
-  const { Client } = newDb().adapters.createPg();
-
-  return wrap(new Client());
+export const create = (connectionString: string): Database => {
+  const pool = new Pool({ connectionString });
+  return wrap(pool);
 };

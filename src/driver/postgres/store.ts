@@ -1,20 +1,19 @@
 import { queryRaw } from "./query";
 import type { IBuilder } from "../../query/builder";
-import type { IKept, TJSON } from "../../IStore";
+import type { IKept, TJSON } from "../../IKept";
 import * as DB from "./db";
 
 /**
- * Create a new store. A sqlite3 db is created at the given path.
+ * Create a new store using the existing PostrgresQL database as a backing store
  *
- * Use ':memory:' to create an in memory store
- * @param filename
+ * @param connectionString
  * @returns
  */
-export const Store = (filename_: string): IKept => {
-  let db: DB.Database | undefined;
+export const Store = (connectionString: string): IKept => {
+  let db: Promise<DB.Database> | undefined;
 
   const newConnection = async (): Promise<DB.Database> => {
-    const db = DB.create();
+    const db = DB.create(connectionString);
     await db.run(
       `CREATE TABLE IF NOT EXISTS objects (id serial PRIMARY KEY, json JSON);`
     );
@@ -26,8 +25,7 @@ export const Store = (filename_: string): IKept => {
       return db;
     }
 
-    // TODO: concurrency issue
-    db = await newConnection();
+    db = newConnection();
     return db;
   };
 
@@ -47,9 +45,9 @@ export const Store = (filename_: string): IKept => {
   ): Promise<TJSON[]> => {
     const db = await getConnection();
     const json = await db.all(
-      `SELECT id, json FROM objects WHERE (json->$1) = $2`,
+      `SELECT id, json FROM objects WHERE (json::json->>$1) = $2`,
       `${key}`,
-      JSON.stringify(value)
+      value
     );
     return json.map((s) => ({ id: s.id, ...s.json }));
   };
@@ -60,9 +58,9 @@ export const Store = (filename_: string): IKept => {
   ): Promise<TJSON | undefined> => {
     const db = await getConnection();
     const row = await db.get(
-      `SELECT id, json FROM objects WHERE json::json->$1 = $2`,
+      `SELECT id, json FROM objects WHERE json::json->>$1 = $2`,
       `${key}`,
-      JSON.stringify(value)
+      value
     );
 
     if (row == null) {
@@ -107,11 +105,13 @@ export const Store = (filename_: string): IKept => {
 
   const close = async () => {
     if (db != null) {
-      await db.close();
+      const pool = await db;
+      await pool.close();
     }
   };
 
   const query = async (build: (_: IBuilder) => IBuilder) => {
+    debugger;
     const db = await getConnection();
     return queryRaw(db, build) as Promise<TJSON[]>;
   };
@@ -128,30 +128,41 @@ export const Store = (filename_: string): IKept => {
       });
 
     const attempt = async (retries: number): Promise<void> => {
-      const db = await newConnection();
+      const pool = await getConnection();
+      const db = await pool.unwrap().connect();
+
       let delay: undefined | number;
       try {
-        await db.run("BEGIN TRANSACTION");
-        const current = await db.get(
-          `SELECT json FROM objects WHERE id = $1`,
-          id
-        );
-        const updated = mapper(current.json);
-        await db.run(
-          `REPLACE INTO objects (id, json) VALUES ($1, $2)`,
-          id,
-          JSON.stringify(updated)
-        );
-        await db.run("COMMIT");
+        await db.query("BEGIN");
+        await db.query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE");
+        try {
+          const current = await db.query(
+            `SELECT json FROM objects WHERE id = $1`,
+            [id]
+          );
+          const updated = mapper(current.rows[0].json);
+          await db.query(`UPDATE objects SET json = $2 WHERE id = $1`, [
+            id,
+            JSON.stringify(updated),
+          ]);
+          await db.query("COMMIT");
+        } catch (e) {
+          await db.query("ROLLBACK");
+          throw e;
+        }
       } catch (error) {
-        if (retries <= MAX_ATTEMPTS && (error as any).errno === 5) {
+        if (
+          retries <= MAX_ATTEMPTS &&
+          error != null &&
+          (error as any).code === "40001"
+        ) {
           const maxDelay = DELAY_SIZE * Math.pow(2, retries);
           delay = Math.floor(Math.random() * maxDelay);
         } else {
           throw error;
         }
       } finally {
-        await db.close();
+        db.release();
       }
 
       if (delay != null) {

@@ -1,6 +1,6 @@
 import { queryRaw } from "./query";
 import type { IBuilder } from "../../query/builder";
-import type { IKept, TJSON } from "../../IStore";
+import type { IKept, TJSON } from "../../IKept";
 import * as DB from "./db";
 
 /**
