@@ -111,7 +111,6 @@ export const Store = (connectionString: string): IKept => {
   };
 
   const query = async (build: (_: IBuilder) => IBuilder) => {
-    debugger;
     const db = await getConnection();
     return queryRaw(db, build) as Promise<TJSON[]>;
   };
