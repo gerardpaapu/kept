@@ -32,7 +32,7 @@ const asSql =
           asUnknown: () => `id`,
           asJson: () => {
             throw new Error(`id has no JSON representation`);
-          }, // THIS SHOULD PROBABLY THROW
+          },
         }),
         any: (a, f) => (depth: number) => {
           const j = `j${depth}`;

@@ -267,7 +267,7 @@ if (TEST_DB != null) {
   });
 } else {
   describe(`POSTGRESQL_CONNECTION_STRING is undefined`, () => {
-    it("defined the environment variable to run pg tests", () => {
+    it("define the environment variable to run pg tests", () => {
       expect(true).toBeTruthy();
     });
   });
