@@ -150,6 +150,16 @@ describe("adding objects into the store", () => {
   });
 });
 
+describe("adding many objects into the store", () => {
+  it("returns an id for each object", async () => {
+    const { addAll, all, close } = Store(":memory:");
+    await addAll(puppies);
+    const records = await all();
+    expect(records).toHaveLength(puppies.length);
+    await close();
+  });
+});
+
 describe("putting objects back in to the store", () => {
   it("returns an id for each object", async () => {
     const { add, put, get, close } = Store(":memory:");

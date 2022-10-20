@@ -92,6 +92,20 @@ export const Store = (connectionString: string): IKept => {
     return rows[0].id;
   };
 
+  const addAll = async (objects: TJSON[]): Promise<void> => {
+    const db = await getConnection();
+    await db.run("BEGIN");
+
+    for (const object of objects) {
+      await db.run(
+        "INSERT INTO objects (id, json) VALUES (default, $1)",
+        JSON.stringify(object)
+      );
+    }
+
+    await db.run("COMMIT");
+  };
+
   const delete_ = async (key: number): Promise<void> => {
     const db = await getConnection();
     await db.run("DELETE FROM objects WHERE id = $1", key);
@@ -176,6 +190,7 @@ export const Store = (connectionString: string): IKept => {
   return {
     get,
     add,
+    addAll,
     put,
     findBy,
     findOneBy,

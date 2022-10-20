@@ -90,6 +90,20 @@ export const Store = (filename: string): IKept => {
     return lastID;
   };
 
+  const addAll = async (objects: TJSON[]): Promise<void> => {
+    const db = await getConnection();
+    await db.run("BEGIN TRANSACTION");
+    for (const object of objects) {
+      // TODO: use a prepared commit
+      await db.run(
+        "INSERT INTO objects (json) VALUES (?)",
+        JSON.stringify(object)
+      );
+    }
+
+    await db.run("COMMIT");
+  };
+
   const delete_ = async (key: number): Promise<void> => {
     const db = await getConnection();
     await db.run("DELETE FROM objects WHERE id = ?", key);
@@ -162,6 +176,7 @@ export const Store = (filename: string): IKept => {
   return {
     get,
     add,
+    addAll,
     put,
     findBy,
     findOneBy,

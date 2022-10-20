@@ -29,6 +29,12 @@ export interface IKept {
   add(object: TJSON): Promise<number>;
 
   /**
+   * Save an array of objects to the store
+   * @param object
+   */
+  addAll(object: TJSON[]): Promise<void>;
+
+  /**
    * Find all the objects in the store where the key is equal to the given value
    * @param key
    * @param value
