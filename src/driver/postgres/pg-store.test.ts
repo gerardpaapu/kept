@@ -220,7 +220,7 @@ if (TEST_DB != null) {
     });
   });
 
-  describe("Concurrent update", () => {
+  describe("atomic update", () => {
     it(`preserves all writes`, async () => {
       const { add, update, get, close } = Store(TEST_DB);
 
@@ -263,6 +263,15 @@ if (TEST_DB != null) {
       } finally {
         await close();
       }
+    });
+    it(`yields the updated value`, async () => {
+      const { add, update, close } = Store(TEST_DB);
+
+      const id = await add(23);
+      const result = await update(id, (n: number) => n * n);
+      expect(result).toBe(23 * 23);
+
+      await close();
     });
   });
 } else {

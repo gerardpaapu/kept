@@ -126,7 +126,10 @@ export const Store = (filename: string): IKept => {
     return queryRaw(db, build) as Promise<TJSON[]>;
   };
 
-  const update = async <T extends TJSON>(id: number, mapper: (_: T) => T) => {
+  const update = async <T extends TJSON>(
+    id: number,
+    mapper: (_: T) => T
+  ): Promise<T> => {
     const MAX_ATTEMPTS = 10;
     const DELAY_SIZE = 40;
 
@@ -137,22 +140,25 @@ export const Store = (filename: string): IKept => {
         }, n);
       });
 
-    const attempt = async (retries: number): Promise<void> => {
+    const attempt = async (retries: number): Promise<T> => {
       const db = await newConnection();
       let delay: undefined | number;
+      let updated: T;
+
       try {
         await db.run("BEGIN TRANSACTION");
         const current = await db.get(
           `SELECT json FROM objects WHERE id = ?`,
           id
         );
-        const updated = mapper(JSON.parse(current.json));
+        updated = mapper(JSON.parse(current.json));
         await db.run(
           `REPLACE INTO objects (id, json) VALUES (?, ?)`,
           id,
           JSON.stringify(updated)
         );
         await db.run("COMMIT");
+        return updated;
       } catch (error) {
         if (retries <= MAX_ATTEMPTS && (error as any).errno === 5) {
           const maxDelay = DELAY_SIZE * Math.pow(2, retries);
@@ -164,10 +170,8 @@ export const Store = (filename: string): IKept => {
         await db.close();
       }
 
-      if (delay != null) {
-        await wait(delay);
-        await attempt(retries + 1);
-      }
+      await wait(delay);
+      return await attempt(retries + 1);
     };
 
     return attempt(0);

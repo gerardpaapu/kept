@@ -129,7 +129,10 @@ export const Store = (connectionString: string): IKept => {
     return queryRaw(db, build) as Promise<TJSON[]>;
   };
 
-  const update = async <T extends TJSON>(id: number, mapper: (_: T) => T) => {
+  const update = async <T extends TJSON>(
+    id: number,
+    mapper: (_: T) => T
+  ): Promise<T> => {
     const MAX_ATTEMPTS = 10;
     const DELAY_SIZE = 40;
 
@@ -140,7 +143,7 @@ export const Store = (connectionString: string): IKept => {
         }, n);
       });
 
-    const attempt = async (retries: number): Promise<void> => {
+    const attempt = async (retries: number): Promise<T> => {
       const pool = await getConnection();
       const db = await pool.unwrap().connect();
 
@@ -153,12 +156,13 @@ export const Store = (connectionString: string): IKept => {
             `SELECT json FROM objects WHERE id = $1`,
             [id]
           );
-          const updated = mapper(current.rows[0].json);
+          const updated: T = mapper(current.rows[0].json);
           await db.query(`UPDATE objects SET json = $2 WHERE id = $1`, [
             id,
             JSON.stringify(updated),
           ]);
           await db.query("COMMIT");
+          return updated;
         } catch (e) {
           await db.query("ROLLBACK");
           throw e;
@@ -178,10 +182,8 @@ export const Store = (connectionString: string): IKept => {
         db.release();
       }
 
-      if (delay != null) {
-        await wait(delay);
-        await attempt(retries + 1);
-      }
+      await wait(delay);
+      return await attempt(retries + 1);
     };
 
     return attempt(0);

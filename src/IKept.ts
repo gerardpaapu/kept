@@ -75,5 +75,5 @@ export interface IKept {
    * @param id
    * @param mapper
    */
-  update<T extends TJSON>(id: number, mapper: (object: T) => T): Promise<void>;
+  update<T extends TJSON>(id: number, mapper: (object: T) => T): Promise<T>;
 }

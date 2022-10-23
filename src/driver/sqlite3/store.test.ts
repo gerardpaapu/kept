@@ -215,7 +215,7 @@ describe("find all matching objects", () => {
   });
 });
 
-describe("Concurrent update", () => {
+describe("atomic update", () => {
   it(`preserves all writes`, async () => {
     const tempdir = await FS.mkdtemp(Path.join(OS.tmpdir(), "kept-"));
     const path = Path.join(tempdir, "data.db");
@@ -255,6 +255,18 @@ describe("Concurrent update", () => {
       b: 2,
       c: 2,
     });
+
+    await close();
+  });
+
+  it(`yields the updated value`, async () => {
+    const tempdir = await FS.mkdtemp(Path.join(OS.tmpdir(), "kept-"));
+    const path = Path.join(tempdir, "data.db");
+    const { add, update, close } = Store(path);
+
+    const id = await add(23);
+    const result = await update(id, (n: number) => n * n);
+    expect(result).toBe(23 * 23);
 
     await close();
   });
