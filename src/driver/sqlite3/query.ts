@@ -3,19 +3,19 @@ import { IBuilder, empty } from "../../query/builder";
 import compileBuilder from "./compile-builder";
 
 interface IRow {
-  id: number;
-  json0: string;
+	id: number;
+	json0: string;
 }
 
 export const queryRaw = async (
-  db: Database,
-  build: (_: IBuilder) => IBuilder
+	db: Database,
+	build: (_: IBuilder) => IBuilder,
 ) => {
-  const args = compileBuilder(build(empty()));
-  const rows = await db.all(...args);
-  // TODO: this cast is not ideal
-  return (rows as unknown as IRow[]).map(({ id, json0: json }) => ({
-    id,
-    ...JSON.parse(json),
-  }));
+	const args = compileBuilder(build(empty()));
+	const rows = await db.all(...args);
+	// TODO: this cast is not ideal
+	return (rows as unknown as IRow[]).map(({ id, json0: json }) => ({
+		id,
+		...JSON.parse(json),
+	}));
 };
