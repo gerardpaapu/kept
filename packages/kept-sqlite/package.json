@@ -1,9 +1,12 @@
 {
-  "name": "kept-sqlite",
+  "name": "@donothing/kept-sqlite",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
+    "prepare": "pnpm run build",
+    "build": "tsc",
     "test": "vitest"
   },
   "keywords": [],

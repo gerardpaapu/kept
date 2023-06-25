@@ -173,8 +173,6 @@ const doggos = await store.query(
 To get a partial result set, you can specify offset and limit
 
 ```js
-import { equal, prop } from '@donothing/kept'
-
 const doggos = await store.query(
   dogs => dogs
     .where(dog => dog.get('breed').eq('Alsatian'))
