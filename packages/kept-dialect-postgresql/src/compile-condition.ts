@@ -1,4 +1,7 @@
-import type { TInterpreter, TPredicate } from "@donothing/kept-core/dist/algebra";
+import type {
+	TInterpreter,
+	TPredicate,
+} from "@donothing/kept-core/dist/algebra";
 
 type DepthString = (depth: number) => string;
 

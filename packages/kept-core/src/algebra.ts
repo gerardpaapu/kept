@@ -23,18 +23,20 @@ export interface ITestAlg<TValue, TBoolean>
 		ILiteralAlg<TValue>,
 		IBooleanAlg<TBoolean> {}
 
-export interface ITestWithParamsAlg<TValue, TBoolean, TParams extends Record<string, number | string>>
-  extends ITestAlg<TValue, TBoolean>
-  {
-    param(key: keyof TParams): TValue
-  }
+export interface ITestWithParamsAlg<
+	TValue,
+	TBoolean,
+	TParams extends Record<string, number | string>,
+> extends ITestAlg<TValue, TBoolean> {
+	param(key: keyof TParams): TValue;
+}
 
 export type TPredicate = <T, V>(alg: ITestAlg<V, T>, record: V) => T;
 export type TPicker = <V>(alg: ILiteralAlg<V>, record: V) => V;
 
 export type TPredicateWithParams<Params extends {}> = <T, V>(
-  alg: ITestWithParamsAlg<V, T, Params>,
-  record: V
+	alg: ITestWithParamsAlg<V, T, Params>,
+	record: V,
 ) => T;
 
 export type TInterpreter<T> = (p: TPredicate) => T;

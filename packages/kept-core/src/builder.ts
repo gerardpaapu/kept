@@ -17,14 +17,20 @@ export interface IBuilder {
 	query: Query;
 }
 
-export type Paramaterised<R extends {} = {}> = (b: IBuilder, params: R) => IBuilder
+export type Paramaterised<R extends {} = {}> = (
+	b: IBuilder,
+	params: R,
+) => IBuilder;
 
 export const builder = (query: Query): IBuilder => {
 	return {
 		query,
-		where: (pred) => builder({ ...query, where: [...query.where, unwrapCondition(pred)] }),
-		and: (pred) => builder({ ...query, where: [...query.where, unwrapCondition(pred)] }),
-		orderBy: (prop, order) => builder({ ...query, orderBy: { prop: unwrapPicker(prop), order } }),
+		where: (pred) =>
+			builder({ ...query, where: [...query.where, unwrapCondition(pred)] }),
+		and: (pred) =>
+			builder({ ...query, where: [...query.where, unwrapCondition(pred)] }),
+		orderBy: (prop, order) =>
+			builder({ ...query, orderBy: { prop: unwrapPicker(prop), order } }),
 		offset: (count) => builder({ ...query, offset: count }),
 		limit: (count) => builder({ ...query, limit: count }),
 	};
@@ -37,6 +43,3 @@ export const empty = () =>
 		offset: undefined,
 		limit: undefined,
 	});
-
-
-  

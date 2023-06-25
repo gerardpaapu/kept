@@ -107,8 +107,10 @@ export const unwrapPicker =
 	($, v) =>
 		f(wrapPicker(() => v as any)).unwrap()($);
 
-export const unwrapCondition = (c: ConditionW): TPredicate => ($, r) =>
-  c(wrapValue(() => r as any)).unwrap()($)
+export const unwrapCondition =
+	(c: ConditionW): TPredicate =>
+	($, r) =>
+		c(wrapValue(() => r as any)).unwrap()($);
 
 export type ConditionW = (record: IValueW) => IBooleanW;
 export type PickerW = (record: IPickerW) => IPickerW;

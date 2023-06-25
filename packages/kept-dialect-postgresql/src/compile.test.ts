@@ -1,16 +1,18 @@
-import { describe, it, expect } from 'vitest'
-import compile from './index'
-import * as builder from '@donothing/kept-core/dist/builder'
+import { describe, it, expect } from "vitest";
+import compile from "./index";
+import * as builder from "@donothing/kept-core/dist/builder";
 
-describe('Compiling to PostgreSQL dialect', () => {
-  it('compiles what you would expect', () => {
-    const query = builder.empty()
-      .where(dog => dog.get('name').like('Fido%'))
-      .and(dog => dog.get('weight').lt(10))
-      .offset(20).limit(10)
-      .orderBy(dog => dog.id(), 'desc')
+describe("Compiling to PostgreSQL dialect", () => {
+	it("compiles what you would expect", () => {
+		const query = builder
+			.empty()
+			.where((dog) => dog.get("name").like("Fido%"))
+			.and((dog) => dog.get("weight").lt(10))
+			.offset(20)
+			.limit(10)
+			.orderBy((dog) => dog.id(), "desc");
 
-    expect(compile(query)).toMatchInlineSnapshot(`
+		expect(compile(query)).toMatchInlineSnapshot(`
       [
         "SELECT id, json 
       FROM objects
@@ -25,6 +27,6 @@ describe('Compiling to PostgreSQL dialect', () => {
         10,
         20,
       ]
-    `)
-  })
-})
+    `);
+	});
+});

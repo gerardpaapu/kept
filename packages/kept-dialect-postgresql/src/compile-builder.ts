@@ -2,7 +2,6 @@ import compileCondition from "./compile-condition";
 import compileValue from "./compile-value";
 import type { IBuilder } from "@donothing/kept-core/dist/builder";
 
-
 const compileBuilder = ({
 	query,
 }: IBuilder): [sql: string, ...args: (string | number)[]] => {

@@ -1,1 +1,1 @@
-export * as algebra from './algebra' 
+export * as algebra from "./algebra";
