@@ -5,8 +5,6 @@ export interface IRow {
 	json: any;
 }
 
-// export type IRunResult = { lastID: number; changes: unknown };
-
 export interface Database {
 	get(sql: string, ...params: (number | string)[]): Promise<IRow>;
 	all(sql: string, ...params: (number | string)[]): Promise<IRow[]>;

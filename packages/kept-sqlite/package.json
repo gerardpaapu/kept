@@ -14,7 +14,8 @@
   "license": "ISC",
   "dependencies": {
     "@donothing/kept-dialect-sqlite": "workspace:^",
-    "@donothing/kept-core": "workspace:^"
+    "@donothing/kept-core": "workspace:^",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "rome": "^12.1.3",

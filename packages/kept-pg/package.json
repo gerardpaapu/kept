@@ -14,7 +14,9 @@
   "license": "ISC",
   "dependencies": {
     "@donothing/kept-dialect-postgresql": "workspace:^",
-    "@donothing/kept-core": "workspace:^"
+    "@donothing/kept-core": "workspace:^",
+    "pg":"^8.11.3",
+    "@types/pg":"^8.10.9"
   },
   "devDependencies": {
     "rome": "^12.1.3",
